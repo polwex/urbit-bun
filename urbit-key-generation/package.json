@@ -1,0 +1,26 @@
+{
+  "name": "urbit-key-generation",
+  "module": "index.ts",
+  "type": "module",
+  "dependencies": {
+    "@ethersproject/address": "^5.8.0",
+    "@ethersproject/keccak256": "^5.8.0",
+    "@ethersproject/transaction": "^6.0.0-beta.2",
+    "@urbit/nockjs": "^1.6.0",
+    "argon2-wasm": "^0.9.0",
+    "bip32": "^5.0.0-rc.0",
+    "bip39": "^3.1.0",
+    "js-sha256": "^0.11.0",
+    "secp256k1": "^5.0.1",
+    "tiny-secp256k1": "^2.2.3",
+    "tweetnacl": "^1.0.3",
+    "urbit-ob": "file:../urbit-ob"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/secp256k1": "^4.0.6"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

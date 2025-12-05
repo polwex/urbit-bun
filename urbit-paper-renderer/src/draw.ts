@@ -1,0 +1,242 @@
+import { isNamedTupleMember } from "typescript";
+import { wordWrap, baseline } from "./utils";
+// NB: g_a_v_i_n
+// Leave this here, it may be used again.
+// const qr = (
+//   ctx,
+//   {
+//     data,
+//     x,
+//     y,
+//     size,
+//     type
+//   }) => {
+//   ctx.drawImage(data, x, y + 3, size, size)
+// }
+interface SigilProps {
+  data: any;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  type: string;
+}
+interface ImgProps extends SigilProps {
+  color: string;
+  draw: any;
+}
+interface TextProps extends SigilProps {
+  fontColor: string;
+  fontFamily: string;
+  fontWeight: string;
+  fontSize: number;
+  lineHeightPx: number;
+}
+interface SvgProps extends SigilProps {
+  cornerRadius: number;
+  fillColor: string;
+  strokeColor: string;
+  strokeWeight: number;
+  dashes: number[];
+}
+const sigil = (
+  ctx: CanvasRenderingContext2D,
+  { data, x, y, width, height, type }: SigilProps,
+) => {
+  ctx.drawImage(data, x, y, width, height);
+};
+
+const img = (
+  ctx: CanvasRenderingContext2D,
+  { type, draw, data, width, height, x, y, color }: ImgProps,
+) => {
+  // move img to correct xy pos
+  ctx.translate(x, y + 3);
+  // draw using svg path data
+  const path = new Path2D(data);
+  ctx.fillStyle = color;
+  ctx.fill(path);
+  // reset translation by performing the inverse translation
+  ctx.translate(-x, -(y + 3));
+};
+
+const text = (
+  ctx: CanvasRenderingContext2D,
+  {
+    fontWeight,
+    fontSize,
+    lineHeightPx,
+    width,
+    height,
+    x,
+    y,
+    fontFamily,
+    data,
+    type,
+    fontColor,
+  }: TextProps,
+) => {
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.fillStyle = fontColor;
+  ctx.fillText(data, x, baseline(fontSize, y));
+};
+
+const wrappedText = (
+  ctx: CanvasRenderingContext2D,
+  {
+    fontWeight,
+    fontSize,
+    lineHeightPx,
+    width,
+    height,
+    x,
+    y,
+    fontFamily,
+    data,
+    type,
+    fontColor,
+  }: TextProps,
+) => {
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.fillStyle = fontColor;
+
+  wordWrap(ctx, data, x, baseline(fontSize, y), lineHeightPx, width, fontColor);
+};
+
+const ethereumAddress = (
+  ctx: CanvasRenderingContext2D,
+  {
+    fontWeight,
+    fontSize,
+    lineHeightPx,
+    x,
+    y,
+    fontFamily,
+    data,
+    fontColor,
+    width,
+    height,
+  }: TextProps,
+) => {
+  const addr = data
+    .substring(2)
+    .match(/.{1,4}/g)
+    .join(" ");
+
+  // const offset = -4
+  const offset = lineHeightPx / 4;
+
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.fillStyle = fontColor;
+  ctx.fillText(`0x ${addr}`, x, baseline(fontSize, y));
+};
+
+const shard = (
+  ctx: CanvasRenderingContext2D,
+  {
+    fontWeight,
+    fontSize,
+    lineHeightPx,
+    x,
+    y,
+    width,
+    height,
+    fontFamily,
+    data,
+    fontColor,
+  }: TextProps,
+) => {
+  const ch = data.match(/.{1,56}/g);
+
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.fillStyle = fontColor;
+  ctx.fillText(ch[0], x, baseline(fontSize, y));
+  ctx.fillText(ch[1], x, baseline(fontSize, y) + lineHeightPx);
+};
+
+const rect = (
+  ctx: CanvasRenderingContext2D,
+  {
+    cornerRadius,
+    dashes,
+    x,
+    y,
+    width,
+    height,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+  }: SvgProps,
+) => {
+  var rgbStroke = strokeColor;
+  var rgbFill = fillColor;
+
+  ctx.setLineDash([]);
+
+  if (dashes != null) {
+    ctx.setLineDash(dashes);
+  }
+
+  if (cornerRadius > 0) {
+    ctx.beginPath();
+    ctx.moveTo(x + cornerRadius, y);
+    ctx.lineTo(x + width - cornerRadius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + cornerRadius);
+    ctx.lineTo(x + width, y + height - cornerRadius);
+    ctx.quadraticCurveTo(
+      x + width,
+      y + height,
+      x + width - cornerRadius,
+      y + height,
+    );
+    ctx.lineTo(x + cornerRadius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - cornerRadius);
+    ctx.lineTo(x, y + cornerRadius);
+    ctx.quadraticCurveTo(x, y, x + cornerRadius, y);
+    ctx.closePath();
+  }
+
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = strokeWeight;
+  ctx.stroke();
+  ctx.fillStyle = rgbFill;
+  ctx.fill();
+};
+
+const line = (
+  ctx: CanvasRenderingContext2D,
+  { dashes, x, y, width, height, strokeColor, strokeWeight }: SvgProps,
+) => {
+  ctx.strokeStyle = strokeColor;
+
+  // canvas renders strokes twice as big
+  ctx.lineWidth = strokeWeight;
+  // strokeWeight != null && strokeWeight > 0 ? strokeWeight / 2 : 1
+
+  ctx.setLineDash([]);
+
+  if (dashes != null) {
+    ctx.setLineDash(dashes);
+  }
+
+  var x2 = x + width;
+  var y2 = y + height;
+
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+};
+
+const draw = {
+  // qr: qr,
+  sigil: sigil,
+  img: img,
+  wrappedText: wrappedText,
+  ethereumAddress: ethereumAddress,
+  shard: shard,
+  rect: rect,
+  line: line,
+};
+
+export { draw };

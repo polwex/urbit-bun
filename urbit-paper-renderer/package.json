@@ -1,0 +1,19 @@
+{
+  "name": "urbit-paper-renderer",
+  "module": "index.ts",
+  "type": "module",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "urbit-sigil-js": "file:../sigil-ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "urbit-key-generation": "file:../urbit-key-generation",
+    "urbit-ob": "file:../urbit-ob"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

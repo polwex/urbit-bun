@@ -1,0 +1,19 @@
+{
+  "name": "sigil-ts",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/invariant": "^2.2.37",
+    "@types/react": "^19.1.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "invariant": "^2.2.4",
+    "react": "^19.1.0",
+    "svgson": "^5.3.1",
+    "transformation-matrix": "^3.0.0"
+  }
+}
