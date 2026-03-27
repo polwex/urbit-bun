@@ -107,12 +107,12 @@ const murmurhash3_32_gc = (key: string, seed: number): number => {
   k1 = 0;
 
   switch (remainder) {
+    // @ts-ignore intentional fallthrough (murmur hash)
     case 3:
       k1 ^= (key.charCodeAt(i + 2) & 0xff) << 16;
-    // eslint-disable-next-line no-fallthrough
+    // @ts-ignore intentional fallthrough (murmur hash)
     case 2:
       k1 ^= (key.charCodeAt(i + 1) & 0xff) << 8;
-    // eslint-disable-next-line no-fallthrough
     case 1:
       k1 ^= key.charCodeAt(i) & 0xff;
       k1 =

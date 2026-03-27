@@ -1,7 +1,14 @@
-import { UrbitHttpApiEvent, UrbitHttpApiEventType } from "./events";
-import { fetchEventSource, EventSourceMessage } from "./fetch-event-source";
+import type { UrbitHttpApiEvent, UrbitHttpApiEventType } from "./events";
+import {
+  fetchEventSource,
+  type EventSourceMessage,
+} from "./fetch-event-source";
 
 import {
+  FatalError,
+  ReapError,
+} from "./types";
+import type {
   Scry,
   Thread,
   AuthenticationInterface,
@@ -11,8 +18,6 @@ import {
   SSEOptions,
   PokeHandlers,
   Message,
-  FatalError,
-  ReapError,
 } from "./types";
 import EventEmitter, { hexString } from "./utils";
 
@@ -102,13 +107,13 @@ export class Urbit {
    */
   fetchFn: typeof fetch = (...args) => fetch(...args);
 
-  onError?: (error: any) => void = null;
+  onError?: (error: any) => void = undefined;
 
-  onRetry?: () => void = null;
+  onRetry?: () => void = undefined;
 
-  onOpen?: () => void = null;
+  onOpen?: () => void = undefined;
 
-  onReconnect?: () => void = null;
+  onReconnect?: () => void = undefined;
 
   /** This is basic interpolation to get the channel URL of an instantiated Urbit connection. */
   private get channelUrl(): string {
@@ -136,12 +141,19 @@ export class Urbit {
    * be the empty string.
    * @param code The access code for the ship at that address
    */
+  url: string;
+  code?: string;
+  desk?: string;
+
   constructor(
-    public url: string,
-    public code?: string,
-    public desk?: string,
+    url: string,
+    code?: string,
+    desk?: string,
     fetchFn?: typeof fetch,
   ) {
+    this.url = url;
+    this.code = code;
+    this.desk = desk;
     if (globalThis.window) {
       globalThis.window.addEventListener("beforeunload", this.delete);
     }
@@ -268,9 +280,9 @@ export class Urbit {
       }
       const cookie = response.headers.get("set-cookie");
       if (!this.ship && cookie) {
-        this.ship = new RegExp(/urbauth-~([\w-]+)/).exec(cookie)[1];
+        this.ship = new RegExp(/urbauth-~([\w-]+)/).exec(cookie)?.[1];
       }
-      this.cookie = cookie;
+      this.cookie = cookie ?? undefined;
       this.getShipName();
       this.getOurName();
     });
@@ -300,7 +312,7 @@ export class Urbit {
         headers: {},
       };
       sseOptions.withCredentials = true;
-      sseOptions.headers.Cookie = this.cookie;
+      sseOptions.headers!.Cookie = this.cookie;
       fetchEventSource(this.channelUrl, {
         ...this.fetchOptions,
         openWhenHidden: true,
@@ -359,12 +371,12 @@ export class Urbit {
               data.response === "poke" &&
               this.outstandingPokes.has(data.id)
             ) {
-              const funcs = this.outstandingPokes.get(data.id);
+              const funcs = this.outstandingPokes.get(data.id)!;
               if (data.hasOwnProperty("ok")) {
-                funcs.onSuccess();
+                funcs.onSuccess?.();
               } else if (data.hasOwnProperty("err")) {
                 console.error(data.err);
-                funcs.onError(data.err);
+                funcs.onError?.(data.err);
               } else {
                 console.error("Invalid poke response", data);
               }
@@ -373,19 +385,19 @@ export class Urbit {
               data.response === "subscribe" &&
               this.outstandingSubscriptions.has(data.id)
             ) {
-              const funcs = this.outstandingSubscriptions.get(data.id);
+              const funcs = this.outstandingSubscriptions.get(data.id)!;
               if (data.hasOwnProperty("err")) {
                 console.error(data.err);
-                funcs.err(data.err, data.id);
+                funcs.err?.(data.err, data.id);
                 this.outstandingSubscriptions.delete(data.id);
               }
             } else if (
               data.response === "diff" &&
               this.outstandingSubscriptions.has(data.id)
             ) {
-              const funcs = this.outstandingSubscriptions.get(data.id);
+              const funcs = this.outstandingSubscriptions.get(data.id)!;
               try {
-                funcs.event(data.json, data.mark ?? "json", data.id);
+                funcs.event?.(data.json, data.mark ?? "json", data.id);
               } catch (e) {
                 console.error("Failed to call subscription event callback", e);
               }
@@ -393,8 +405,8 @@ export class Urbit {
               data.response === "quit" &&
               this.outstandingSubscriptions.has(data.id)
             ) {
-              const sub = this.outstandingSubscriptions.get(data.id);
-              sub.quit(data);
+              const sub = this.outstandingSubscriptions.get(data.id)!;
+              sub.quit?.(data);
               this.outstandingSubscriptions.delete(data.id);
               this.emit("subscription", {
                 id: data.id,
@@ -468,7 +480,7 @@ export class Urbit {
     const oldSubs = [...this.outstandingSubscriptions.entries()];
     this.outstandingSubscriptions = new Map();
     oldSubs.forEach(([id, sub]) => {
-      sub.quit({
+      sub.quit?.({
         id,
         response: "quit",
       });
@@ -483,7 +495,7 @@ export class Urbit {
     });
 
     this.outstandingPokes.forEach((poke, id) => {
-      poke.onError("Channel was reaped");
+      poke.onError?.("Channel was reaped");
     });
     this.outstandingPokes = new Map();
   }
@@ -613,15 +625,16 @@ export class Urbit {
       this.emit("status-update", { status: "opening" });
     }
 
+    const id = this.getEventId();
     const message: Message = {
-      id: this.getEventId(),
+      id,
       action: "poke",
       ship,
       app,
       mark,
       json,
     };
-    this.outstandingPokes.set(message.id, {
+    this.outstandingPokes.set(id, {
       onSuccess: () => {
         onSuccess();
       },
@@ -630,7 +643,7 @@ export class Urbit {
       },
     });
     await this.sendJSONtoChannel(message);
-    return message.id;
+    return id;
   }
   async ninjaPoke<T>(
     params: PokeInterface<T> & { desk: string; proxyApp: string },
@@ -646,8 +659,9 @@ export class Urbit {
       this.emit("status-update", { status: "opening" });
     }
 
+    const id = this.getEventId();
     const message: Message = {
-      id: this.getEventId(),
+      id,
       action: "poke",
       ship,
       desk,
@@ -655,7 +669,7 @@ export class Urbit {
       mark,
       json,
     };
-    this.outstandingPokes.set(message.id, {
+    this.outstandingPokes.set(id, {
       onSuccess: () => {
         onSuccess();
       },
@@ -664,7 +678,7 @@ export class Urbit {
       },
     });
     await this.ninjaJson(proxyApp, message);
-    return message.id;
+    return id;
   }
 
   /**
@@ -689,15 +703,16 @@ export class Urbit {
       this.emit("status-update", { status: "opening" });
     }
 
+    const id = this.getEventId();
     const message: Message = {
-      id: this.getEventId(),
+      id,
       action: "subscribe",
       ship,
       app,
       path,
     };
 
-    this.outstandingSubscriptions.set(message.id, {
+    this.outstandingSubscriptions.set(id, {
       app,
       path,
       resubOnQuit,
@@ -707,7 +722,7 @@ export class Urbit {
     });
 
     this.emit("subscription", {
-      id: message.id,
+      id,
       app,
       path,
       status: "open",
@@ -715,7 +730,7 @@ export class Urbit {
 
     await this.sendJSONtoChannel(message);
 
-    return message.id;
+    return id;
   }
 
   /**
