@@ -482,6 +482,7 @@ export {
   patp,
   hex2patp,
   patp2dec,
+  patp2bigint,
   hex2patq,
   patq2hex,
   patq2dec,
