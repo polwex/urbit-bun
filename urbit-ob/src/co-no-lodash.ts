@@ -186,10 +186,11 @@ const patq = (arg: number | bigint | string): string => {
 // This function operates on Buffer, no direct bigint/bigint changes needed here,
 // but it will now be called with Buffers derived from bigints.
 const buf2patq = (buf: Buffer): string => {
+  const bytes = [...buf];
   const chunked =
-    buf.length % 2 !== 0 && buf.length > 1
-      ? [[buf[0]!]!]!.concat(chunk(buf.slice(1), 2))
-      : chunk(buf, 2);
+    bytes.length % 2 !== 0 && bytes.length > 1
+      ? [[bytes[0]!]].concat(chunk(bytes.slice(1), 2))
+      : chunk(bytes, 2);
 
   // These functions use array lookups based on numbers (byte values), which is correct.
   const prefixName = (byts: number[]) =>

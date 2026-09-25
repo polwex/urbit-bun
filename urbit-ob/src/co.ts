@@ -2,15 +2,21 @@
 //
 // See arvo/sys/hoon.hoon.
 // Simple replacements for lodash functions to avoid SSR issues
-function chunk(buffer: Buffer, size: number): number[][];
-function chunk<T>(array: T[], size: number): T[][];
-function chunk<T>(array: T[] | Buffer, size: number): T[][] | number[][] {
-  const result: any[] = [];
+const chunk = <T>(array: T[], size: number): T[][] => {
+  const result: T[][] = [];
   for (let i = 0; i < array.length; i += size) {
     result.push(array.slice(i, i + size));
   }
   return result;
-}
+};
+
+const hexToBytes = (hex: string): Uint8Array => {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
+};
 
 const isEqual = (a: any, b: any): boolean => {
   // For the use case in this file, we're comparing strings
@@ -169,28 +175,23 @@ const patq = (arg: number | bigint | string): string => {
   // Replace new bigint(arg) with BigInt(arg)
   const bigint = BigInt(arg);
 
-  // Replace .toArrayLike(Buffer) with Buffer conversion from hex
-  // bigint.toString(16) gives hex. Pad if odd length for Buffer.from.
   const hex = bigint.toString(16);
   const paddedHex = hex.length % 2 !== 0 ? "0" + hex : hex;
-  // Handle the zero case specially, as '0'.toString(16) is '0' and Buffer.from('0', 'hex') is empty.
-  // new bigint(0).toArrayLike(Buffer) is also empty. So empty buffer for 0n is correct.
-  const buf = bigint === 0n ? Buffer.from("") : Buffer.from(paddedHex, "hex");
+  const bytes: Uint8Array = bigint === 0n ? new Uint8Array() : hexToBytes(paddedHex);
 
-  return buf2patq(buf);
+  return buf2patq(bytes);
 };
 
 /**
- * Convert a Buffer into a @q-encoded string.
+ * Convert a byte array into a @q-encoded string.
  *
  */
-// This function operates on Buffer, no direct bigint/bigint changes needed here,
-// but it will now be called with Buffers derived from bigints.
-const buf2patq = (buf: Buffer): string => {
+const buf2patq = (buf: Uint8Array): string => {
+  const bytes = [...buf];
   const chunked: number[][] =
-    buf.length % 2 !== 0 && buf.length > 1
-      ? [[buf[0]!]].concat(chunk(buf.slice(1), 2))
-      : chunk(buf, 2);
+    bytes.length % 2 !== 0 && bytes.length > 1
+      ? [[bytes[0]!]].concat(chunk(bytes.slice(1), 2))
+      : chunk(bytes, 2);
 
   // These functions use array lookups based on numbers (byte values), which is correct.
   const prefixName = (byts: number[]) =>
@@ -218,12 +219,10 @@ const buf2patq = (buf: Buffer): string => {
  * Note that this preserves leading zero bytes.
  *
  */
-// This function operates on strings and Buffer, no direct bigint/bigint changes needed.
 const hex2patq = (arg: string): string => {
   const hex = arg.length % 2 !== 0 ? arg.padStart(arg.length + 1, "0") : arg;
 
-  const buf = Buffer.from(hex, "hex");
-  return buf2patq(buf);
+  return buf2patq(hexToBytes(hex));
 };
 
 /**
@@ -483,6 +482,7 @@ export {
   patp,
   hex2patp,
   patp2dec,
+  patp2bigint,
   hex2patq,
   patq2hex,
   patq2dec,
